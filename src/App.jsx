@@ -137,6 +137,37 @@ function SplineBackground() {
   )
 }
 
+function ProfileAvatar({ size = 88, className = '' }) {
+  const srcEnv = import.meta.env.VITE_PROFILE_IMAGE
+  const fallback = `https://ui-avatars.com/api/?name=Jubin+Kuli&size=${size * 4}&background=0D9488&color=fff&bold=true&format=png`
+  const [src, setSrc] = useState(srcEnv || '/profile.jpg')
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    setSrc(srcEnv || '/profile.jpg')
+  }, [srcEnv])
+
+  return (
+    <div className={`relative inline-block ${className}`} style={{ width: size, height: size }}>
+      {/* Outer glow ring */}
+      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-cyan-500/40 to-purple-500/40 blur-md" aria-hidden />
+      {/* Image */}
+      <img
+        src={error ? fallback : src}
+        alt="Jubin Kuli profile"
+        className={`relative z-10 h-full w-full rounded-full object-cover border border-white/20 bg-black/20 ${loaded ? '' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        referrerPolicy="no-referrer"
+      />
+      {/* Skeleton */}
+      {!loaded && (
+        <div className="relative z-0 h-full w-full rounded-full bg-white/10 animate-pulse border border-white/10" />
+      )}
+    </div>
+  )}
+
 function Hero() {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [cursor, setCursor] = useState({ x: 0, y: 0 })
@@ -220,12 +251,18 @@ function Hero() {
             <Sparkles className="h-4 w-4 text-cyan-300" />
             <span className="text-xs md:text-sm text-white/80">Tech • Portfolio • Interactive</span>
           </div>
-          <h1 className="mt-4 text-4xl md:text-6xl font-extrabold leading-tight">
-            Hi, I'm <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Jubin Kuli</span>
-          </h1>
-          <p className="mt-4 text-white/80 text-lg md:text-xl max-w-2xl">
-            Class 11 student from Assam, Gogamukh (Ukhamati Kali Gaon). I build playful AI and utility projects with modern, interactive 3D.
-          </p>
+          <div className="mt-4 flex items-center gap-4">
+            <ProfileAvatar size={72} />
+            <div>
+              <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
+                Hi, I'm <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Jubin Kuli</span>
+              </h1>
+              <p className="mt-2 text-white/80 text-lg md:text-xl max-w-2xl">
+                Class 11 student from Assam, Gogamukh (Ukhamati Kali Gaon). I build playful AI and utility projects with modern, interactive 3D.
+              </p>
+            </div>
+          </div>
+
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <motion.a
               whileHover={{ scale: 1.03 }}
@@ -274,13 +311,18 @@ function About() {
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/90 backdrop-blur">
-            <h3 className="text-xl font-bold text-white">Quick Details</h3>
-            <ul className="mt-4 space-y-3">
-              <li className="flex items-center gap-3"><MapPin className="h-5 w-5 text-cyan-300" /> Assam, Gogamukh – Ukhamati Kali Gaon</li>
-              <li className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-purple-300" /> Fascinated by technology</li>
-              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-rose-300" /> jubinkuli72@gmail.com</li>
-              <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-emerald-300" /> 9678613150</li>
-            </ul>
+            <div className="flex items-center gap-4">
+              <ProfileAvatar size={88} />
+              <div>
+                <h3 className="text-xl font-bold text-white">Quick Details</h3>
+                <ul className="mt-3 space-y-3">
+                  <li className="flex items-center gap-3"><MapPin className="h-5 w-5 text-cyan-300" /> Assam, Gogamukh – Ukhamati Kali Gaon</li>
+                  <li className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-purple-300" /> Fascinated by technology</li>
+                  <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-rose-300" /> jubinkuli72@gmail.com</li>
+                  <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-emerald-300" /> 9678613150</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -525,6 +567,7 @@ export default function App() {
       <header className="fixed top-0 left-0 right-0 z-40 backdrop-blur bg-black/40 border-b border-white/10">
         <div className="container mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
           <a href="#home" className="font-extrabold text-lg tracking-tight flex items-center gap-2" onClick={(e)=>scrollTo(e, '#home')}>
+            <ProfileAvatar size={28} />
             <span className="h-2 w-2 rounded-full bg-cyan-400" />
             Jubin<span className="text-cyan-400">.dev</span>
           </a>
