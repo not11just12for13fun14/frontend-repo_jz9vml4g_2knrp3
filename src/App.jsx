@@ -137,16 +137,54 @@ function SplineBackground() {
   )
 }
 
+function extractDriveId(url) {
+  if (!url) return null
+  // Matches /file/d/<ID>/view or open?id=<ID>
+  const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)\//)
+  if (fileMatch) return fileMatch[1]
+  const openMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+  if (openMatch) return openMatch[1]
+  return null
+}
+
+function buildCandidateUrls(input) {
+  if (!input) return []
+  const candidates = [input]
+  const id = extractDriveId(input)
+  if (id) {
+    candidates.push(`https://drive.google.com/uc?export=view&id=${id}`)
+    candidates.push(`https://drive.google.com/uc?export=download&id=${id}`)
+  }
+  return [...new Set(candidates)]
+}
+
 function ProfileAvatar({ size = 88, className = '' }) {
   const srcEnv = import.meta.env.VITE_PROFILE_IMAGE
   const fallback = `https://ui-avatars.com/api/?name=Jubin+Kuli&size=${size * 4}&background=0D9488&color=fff&bold=true&format=png`
-  const [src, setSrc] = useState(srcEnv || '/profile.jpg')
+  const [candidates, setCandidates] = useState(buildCandidateUrls(srcEnv).length ? buildCandidateUrls(srcEnv) : ['/profile.jpg'])
+  const [index, setIndex] = useState(0)
   const [loaded, setLoaded] = useState(false)
-  const [error, setError] = useState(false)
 
   useEffect(() => {
-    setSrc(srcEnv || '/profile.jpg')
+    const list = buildCandidateUrls(srcEnv)
+    setCandidates(list.length ? list : ['/profile.jpg'])
+    setIndex(0)
+    setLoaded(false)
   }, [srcEnv])
+
+  const onError = () => {
+    if (index < candidates.length - 1) {
+      setIndex((i) => i + 1)
+    } else {
+      // Push fallback initials if not already last
+      if (candidates[candidates.length - 1] !== fallback) {
+        setCandidates((prev) => [...prev, fallback])
+        setIndex((i) => i + 1)
+      }
+    }
+  }
+
+  const src = candidates[index]
 
   return (
     <div className={`relative inline-block ${className}`} style={{ width: size, height: size }}>
@@ -154,12 +192,13 @@ function ProfileAvatar({ size = 88, className = '' }) {
       <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-cyan-500/40 to-purple-500/40 blur-md" aria-hidden />
       {/* Image */}
       <img
-        src={error ? fallback : src}
+        src={src}
         alt="Jubin Kuli profile"
         className={`relative z-10 h-full w-full rounded-full object-cover border border-white/20 bg-black/20 ${loaded ? '' : 'opacity-0'}`}
         onLoad={() => setLoaded(true)}
-        onError={() => setError(true)}
+        onError={onError}
         referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
       />
       {/* Skeleton */}
       {!loaded && (
