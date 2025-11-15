@@ -100,9 +100,9 @@ function SplineBackground() {
 
   if (!canUse3D) {
     return (
-      <div className="absolute inset-0">
+      <div className="absolute inset-0" aria-hidden>
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />
-        <div className="absolute inset-0 opacity-20" aria-hidden>
+        <div className="absolute inset-0 opacity-20">
           <div className="w-[120vw] h-[120vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.25),transparent_60%)] absolute -top-1/4 -left-1/4" />
           <div className="w-[120vw] h-[120vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.2),transparent_60%)] absolute -bottom-1/3 -right-1/3" />
         </div>
@@ -116,7 +116,10 @@ function SplineBackground() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />
       }>
         <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />}>
-          <SplineLazy scene="https://prod.spline.design/U2M9Ew1k7wX9o6bD/scene.splinecode" style={{ width: '100%', height: '100%' }} />
+          {/* Allow pointer events to pass for Spline interaction */}
+          <div className="w-full h-full">
+            <SplineLazy scene="https://prod.spline.design/U2M9Ew1k7wX9o6bD/scene.splinecode" style={{ width: '100%', height: '100%' }} />
+          </div>
         </Suspense>
       </ErrorBoundary>
     </div>
@@ -143,30 +146,43 @@ function Hero() {
     return () => unsub()
   }, [progressSpring, hovering])
 
+  // Track mouse globally, but show bubble only inside hero bounds
   useEffect(() => {
     const onMove = (e) => {
       const x = (e.clientX / window.innerWidth - 0.5) * 10
       const y = (e.clientY / window.innerHeight - 0.5) * 10
       setPos({ x, y })
       setCursor({ x: e.clientX, y: e.clientY })
-      if (hovering) {
-        setBubble((b) => ({ ...b, visible: true }))
+
+      if (heroRef.current) {
+        const rect = heroRef.current.getBoundingClientRect()
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom
+        setHovering(inside)
+        setBubble((b) => ({ ...b, visible: inside }))
       }
     }
     window.addEventListener('mousemove', onMove)
     return () => window.removeEventListener('mousemove', onMove)
-  }, [hovering])
+  }, [])
 
   const onClick = () => {
     setBubble({ visible: true, text: 'Boop! 🤖✨' })
-    setTimeout(() => setBubble((b) => ({ ...b, text: 'Let\'s explore!' })), 900)
+    setTimeout(() => setBubble((b) => ({ ...b, text: "Let's explore!" })), 900)
   }
 
   return (
-    <section id="home" ref={heroRef} className="relative min-h-[90vh] w-full overflow-hidden flex items-center">
+    <section
+      id="home"
+      ref={heroRef}
+      className="relative min-h-[90vh] w-full overflow-hidden flex items-center"
+      onClick={onClick}
+      onMouseEnter={() => setBubble((b) => ({ ...b, visible: true, text: 'Move your mouse! 🖱️' }))}
+      onMouseLeave={() => setBubble((b) => ({ ...b, visible: false }))}
+    >
       {/* 3D background with safe fallbacks */}
       <SplineBackground />
 
+      {/* Overlay should not block pointer events */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
 
       <motion.div
@@ -181,12 +197,7 @@ function Hero() {
         </div>
       </motion.div>
 
-      <div
-        className="relative z-10 container mx-auto px-6 md:px-10"
-        onMouseEnter={() => { setHovering(true); setBubble({ visible: true, text: 'Move your mouse! 🖱️' }) }}
-        onMouseLeave={() => { setHovering(false); setBubble((b) => ({ ...b, visible: false })) }}
-        onClick={onClick}
-      >
+      <div className="relative z-10 container mx-auto px-6 md:px-10">
         <motion.div
           className="max-w-3xl text-white"
           style={{ transform: `translate3d(${pos.x}px, ${pos.y}px, 0)` }}
@@ -205,10 +216,22 @@ function Hero() {
             Class 11 student from Assam, Gogamukh (Ukhamati Kali Gaon). I build playful AI and utility projects with modern, interactive 3D.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} href="#projects" className="pointer-events-auto inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:opacity-95 transition">
+            <motion.a
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              onMouseEnter={() => setBubble((b) => ({ ...b, visible: true, text: 'Explore projects →' }))}
+              href="#projects"
+              className="pointer-events-auto inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:opacity-95 transition"
+            >
               View Projects
             </motion.a>
-            <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} href="#contact" className="pointer-events-auto inline-flex items-center justify-center rounded-lg border border-white/20 px-5 py-3 text-white/90 hover:text-white hover:border-white/40 transition">
+            <motion.a
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              onMouseEnter={() => setBubble((b) => ({ ...b, visible: true, text: 'Say hello →' }))}
+              href="#contact"
+              className="pointer-events-auto inline-flex items-center justify-center rounded-lg border border-white/20 px-5 py-3 text-white/90 hover:text-white hover:border-white/40 transition"
+            >
               Contact Me
             </motion.a>
           </div>
