@@ -160,13 +160,18 @@ function buildCandidateUrls(input) {
 
 function ProfileAvatar({ size = 88, className = '' }) {
   const srcEnv = import.meta.env.VITE_PROFILE_IMAGE
+  const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+  const proxied = srcEnv ? `${backend}/api/image?src=${encodeURIComponent(srcEnv)}` : null
+
   const fallback = `https://ui-avatars.com/api/?name=Jubin+Kuli&size=${size * 4}&background=0D9488&color=fff&bold=true&format=png`
-  const [candidates, setCandidates] = useState(buildCandidateUrls(srcEnv).length ? buildCandidateUrls(srcEnv) : ['/profile.jpg'])
+  const initialList = proxied ? [proxied] : (srcEnv ? buildCandidateUrls(srcEnv) : ['/profile.jpg'])
+
+  const [candidates, setCandidates] = useState(initialList)
   const [index, setIndex] = useState(0)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    const list = buildCandidateUrls(srcEnv)
+    const list = proxied ? [proxied] : buildCandidateUrls(srcEnv)
     setCandidates(list.length ? list : ['/profile.jpg'])
     setIndex(0)
     setLoaded(false)
@@ -176,7 +181,6 @@ function ProfileAvatar({ size = 88, className = '' }) {
     if (index < candidates.length - 1) {
       setIndex((i) => i + 1)
     } else {
-      // Push fallback initials if not already last
       if (candidates[candidates.length - 1] !== fallback) {
         setCandidates((prev) => [...prev, fallback])
         setIndex((i) => i + 1)
