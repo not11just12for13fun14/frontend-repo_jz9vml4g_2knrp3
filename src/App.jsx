@@ -1,7 +1,28 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
-import Spline from '@splinetool/react-spline'
+import React, { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import { motion, useScroll, useSpring } from 'framer-motion'
 import { Menu, X, Mail, Phone, MapPin, Github, Linkedin, Sparkles, Facebook, Youtube, Instagram, Send, Loader2, CheckCircle2 } from 'lucide-react'
+
+// Lazy-load Spline (client-only) and guard for environments without WebGL
+const SplineLazy = React.lazy(() => import('@splinetool/react-spline').then(m => ({ default: m.default })))
+
+// Simple Error Boundary to prevent white screens if Spline fails
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(error, info) {
+    // eslint-disable-next-line no-console
+    console.error('ErrorBoundary caught:', error, info)
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback || null
+    return this.props.children
+  }
+}
 
 function NavLink({ label, href, onClick }) {
   return (
@@ -53,8 +74,56 @@ function RobotBubble({ x, y, visible, text }) {
   )
 }
 
+function hasWebGL() {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl')
+    )
+  } catch (e) {
+    return false
+  }
+}
+
+function SplineBackground() {
+  const [canUse3D, setCanUse3D] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    if (mq.matches) {
+      setCanUse3D(false)
+      return
+    }
+    setCanUse3D(hasWebGL())
+  }, [])
+
+  if (!canUse3D) {
+    return (
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />
+        <div className="absolute inset-0 opacity-20" aria-hidden>
+          <div className="w-[120vw] h-[120vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.25),transparent_60%)] absolute -top-1/4 -left-1/4" />
+          <div className="w-[120vw] h-[120vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.2),transparent_60%)] absolute -bottom-1/3 -right-1/3" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="absolute inset-0">
+      <ErrorBoundary fallback={
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />
+      }>
+        <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />}>
+          <SplineLazy scene="https://prod.spline.design/U2M9Ew1k7wX9o6bD/scene.splinecode" style={{ width: '100%', height: '100%' }} />
+        </Suspense>
+      </ErrorBoundary>
+    </div>
+  )
+}
+
 function Hero() {
-  // slight parallax reaction to mouse for overlay content
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [cursor, setCursor] = useState({ x: 0, y: 0 })
   const [bubble, setBubble] = useState({ visible: false, text: 'Hey there! 👋' })
@@ -88,24 +157,18 @@ function Hero() {
     return () => window.removeEventListener('mousemove', onMove)
   }, [hovering])
 
-  // Robot-like 3D scene (Spline). This URL can be swapped for any preferred robot scene.
-  const splineUrl = 'https://prod.spline.design/U2M9Ew1k7wX9o6bD/scene.splinecode'
-
   const onClick = () => {
     setBubble({ visible: true, text: 'Boop! 🤖✨' })
-    // Auto-hide after a short moment
     setTimeout(() => setBubble((b) => ({ ...b, text: 'Let\'s explore!' })), 900)
   }
 
   return (
     <section id="home" ref={heroRef} className="relative min-h-[90vh] w-full overflow-hidden flex items-center">
-      <div className="absolute inset-0">
-        <Spline scene={splineUrl} style={{ width: '100%', height: '100%' }} />
-      </div>
+      {/* 3D background with safe fallbacks */}
+      <SplineBackground />
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
 
-      {/* Floating assistant badge */}
       <motion.div
         className="pointer-events-none absolute top-6 right-6 z-20"
         initial={{ y: -10, opacity: 0 }}
@@ -152,10 +215,8 @@ function Hero() {
         </motion.div>
       </div>
 
-      {/* Dialogue bubble that follows cursor and updates on hover/scroll/click */}
       <RobotBubble x={cursor.x} y={cursor.y} visible={bubble.visible} text={bubble.text} />
 
-      {/* Subtle interactive hint */}
       <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-white/70">
         Tip: Move your cursor — the robot reacts. Click to say hi!
       </div>
@@ -322,7 +383,6 @@ function Contact() {
           </div>
         </div>
 
-        {/* Smart contact form */}
         <div className="mt-10 grid lg:grid-cols-2 gap-6 items-start">
           <form onSubmit={onSubmit} className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/90 space-y-4 backdrop-blur">
             <div className="grid md:grid-cols-2 gap-4">
@@ -365,7 +425,6 @@ function Contact() {
             )}
           </form>
 
-          {/* Socials */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/90">
             <p className="text-white/80">
               Prefer socials? You can reach me here as well.
@@ -429,7 +488,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full bg-black text-white">
-      {/* Top nav */}
       <header className="fixed top-0 left-0 right-0 z-40 backdrop-blur bg-black/40 border-b border-white/10">
         <div className="container mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
           <a href="#home" className="font-extrabold text-lg tracking-tight flex items-center gap-2" onClick={(e)=>scrollTo(e, '#home')}>
@@ -456,7 +514,6 @@ export default function App() {
         )}
       </header>
 
-      {/* Content */}
       <main className="pt-16">
         <Hero />
         <About />
