@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Spline from '@splinetool/react-spline'
+import { motion, useScroll, useSpring } from 'framer-motion'
 import { Menu, X, Mail, Phone, MapPin, Github, Linkedin, Sparkles, Facebook, Youtube, Instagram, Send, Loader2, CheckCircle2 } from 'lucide-react'
 
 function NavLink({ label, href, onClick }) {
@@ -29,32 +30,107 @@ function SectionHeading({ title, subtitle }) {
   )
 }
 
+function RobotBubble({ x, y, visible, text }) {
+  return (
+    <motion.div
+      className="pointer-events-none fixed z-30"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: visible ? 1 : 0, scale: visible ? 1 : 0.95 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      style={{
+        left: 0,
+        top: 0,
+        transform: `translate3d(${x + 18}px, ${y - 32}px, 0)`
+      }}
+    >
+      <div className="relative">
+        <div className="rounded-2xl bg-gradient-to-r from-cyan-500/90 to-blue-600/90 text-white px-3 py-1.5 text-xs shadow-lg backdrop-blur border border-white/20">
+          {text}
+        </div>
+        <div className="absolute -bottom-1 left-3 w-2 h-2 rotate-45 bg-blue-600/90" />
+      </div>
+    </motion.div>
+  )
+}
+
 function Hero() {
   // slight parallax reaction to mouse for overlay content
   const [pos, setPos] = useState({ x: 0, y: 0 })
+  const [cursor, setCursor] = useState({ x: 0, y: 0 })
+  const [bubble, setBubble] = useState({ visible: false, text: 'Hey there! 👋' })
+  const [hovering, setHovering] = useState(false)
+  const heroRef = useRef(null)
+
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
+  const progressSpring = useSpring(scrollYProgress, { stiffness: 120, damping: 20 })
+
+  useEffect(() => {
+    const unsub = progressSpring.on('change', (v) => {
+      const pct = Math.round(v * 100)
+      if (!hovering) {
+        setBubble((b) => ({ ...b, text: `Scroll: ${pct}%` }))
+      }
+    })
+    return () => unsub()
+  }, [progressSpring, hovering])
+
   useEffect(() => {
     const onMove = (e) => {
       const x = (e.clientX / window.innerWidth - 0.5) * 10
       const y = (e.clientY / window.innerHeight - 0.5) * 10
       setPos({ x, y })
+      setCursor({ x: e.clientX, y: e.clientY })
+      if (hovering) {
+        setBubble((b) => ({ ...b, visible: true }))
+      }
     }
     window.addEventListener('mousemove', onMove)
     return () => window.removeEventListener('mousemove', onMove)
-  }, [])
+  }, [hovering])
 
   // Robot-like 3D scene (Spline). This URL can be swapped for any preferred robot scene.
   const splineUrl = 'https://prod.spline.design/U2M9Ew1k7wX9o6bD/scene.splinecode'
 
+  const onClick = () => {
+    setBubble({ visible: true, text: 'Boop! 🤖✨' })
+    // Auto-hide after a short moment
+    setTimeout(() => setBubble((b) => ({ ...b, text: 'Let\'s explore!' })), 900)
+  }
+
   return (
-    <section id="home" className="relative min-h-[90vh] w-full overflow-hidden flex items-center">
+    <section id="home" ref={heroRef} className="relative min-h-[90vh] w-full overflow-hidden flex items-center">
       <div className="absolute inset-0">
         <Spline scene={splineUrl} style={{ width: '100%', height: '100%' }} />
       </div>
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
 
-      <div className="relative z-10 container mx-auto px-6 md:px-10">
-        <div className="max-w-3xl text-white" style={{ transform: `translate3d(${pos.x}px, ${pos.y}px, 0)` }}>
+      {/* Floating assistant badge */}
+      <motion.div
+        className="pointer-events-none absolute top-6 right-6 z-20"
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.2 }}
+      >
+        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 backdrop-blur px-3 py-1.5 text-white/80">
+          <span className="text-lg">🤖</span>
+          <span className="text-xs">Robot guide active</span>
+        </div>
+      </motion.div>
+
+      <div
+        className="relative z-10 container mx-auto px-6 md:px-10"
+        onMouseEnter={() => { setHovering(true); setBubble({ visible: true, text: 'Move your mouse! 🖱️' }) }}
+        onMouseLeave={() => { setHovering(false); setBubble((b) => ({ ...b, visible: false })) }}
+        onClick={onClick}
+      >
+        <motion.div
+          className="max-w-3xl text-white"
+          style={{ transform: `translate3d(${pos.x}px, ${pos.y}px, 0)` }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 20 }}
+        >
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 backdrop-blur">
             <Sparkles className="h-4 w-4 text-cyan-300" />
             <span className="text-xs md:text-sm text-white/80">Tech • Portfolio • Interactive</span>
@@ -66,19 +142,22 @@ function Hero() {
             Class 11 student from Assam, Gogamukh (Ukhamati Kali Gaon). I build playful AI and utility projects with modern, interactive 3D.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <a href="#projects" className="pointer-events-auto inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:opacity-95 transition">
+            <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} href="#projects" className="pointer-events-auto inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:opacity-95 transition">
               View Projects
-            </a>
-            <a href="#contact" className="pointer-events-auto inline-flex items-center justify-center rounded-lg border border-white/20 px-5 py-3 text-white/90 hover:text-white hover:border-white/40 transition">
+            </motion.a>
+            <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} href="#contact" className="pointer-events-auto inline-flex items-center justify-center rounded-lg border border-white/20 px-5 py-3 text-white/90 hover:text-white hover:border-white/40 transition">
               Contact Me
-            </a>
+            </motion.a>
           </div>
-        </div>
+        </motion.div>
       </div>
+
+      {/* Dialogue bubble that follows cursor and updates on hover/scroll/click */}
+      <RobotBubble x={cursor.x} y={cursor.y} visible={bubble.visible} text={bubble.text} />
 
       {/* Subtle interactive hint */}
       <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-white/70">
-        Tip: Move your cursor — the robot reacts subtly.
+        Tip: Move your cursor — the robot reacts. Click to say hi!
       </div>
     </section>
   )
@@ -162,7 +241,11 @@ function Projects() {
         <div className="grid md:grid-cols-3 gap-6">
           {projects.map((p, i) => (
             <a key={i} href={p.link} className="group rounded-2xl border border-white/10 bg-white/5 p-6 text-white/90 backdrop-blur hover:bg-white/10 transition block">
-              <div className="h-36 w-full rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-white/10 mb-4 group-hover:from-cyan-500/30 group-hover:to-purple-500/30 transition" />
+              <motion.div
+                className="h-36 w-full rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-white/10 mb-4"
+                whileHover={{ y: -4 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+              />
               <h3 className="text-lg font-bold text-white group-hover:text-cyan-300 transition">{p.title}</h3>
               <p className="mt-2 text-white/70">{p.description}</p>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -267,9 +350,9 @@ function Contact() {
               <textarea name="message" required rows="5" value={form.message} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:border-cyan-400" placeholder="Tell me about your idea..." />
             </div>
 
-            <button type="submit" disabled={loading} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-white font-semibold disabled:opacity-60">
+            <motion.button type="submit" disabled={loading} whileHover={{ scale: loading ? 1 : 1.02 }} whileTap={{ scale: loading ? 1 : 0.98 }} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-white font-semibold disabled:opacity-60">
               {loading ? (<><Loader2 className="h-4 w-4 animate-spin" /> Sending...</>) : (<><Send className="h-4 w-4" /> Send Message</>)}
-            </button>
+            </motion.button>
 
             {result && (
               <div className={`mt-3 text-sm rounded-lg border px-3 py-2 ${result.ok ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-rose-400/30 bg-rose-400/10 text-rose-200'}`}>
