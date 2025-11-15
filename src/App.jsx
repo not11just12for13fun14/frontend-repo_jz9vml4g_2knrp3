@@ -121,8 +121,8 @@ function SplineBackground() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />
       }>
         <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />}>
-          {/* Keep pointer events for Spline so it stays interactive */}
-          <div className="w-full h-full">
+          {/* Keep pointer events for Spline so it stays interactive on desktop; allow scrolling on mobile */}
+          <div className="w-full h-full md:pointer-events-auto pointer-events-none">
             <SplineLazy scene={sceneUrl} style={{ width: '100%', height: '100%' }} />
           </div>
         </Suspense>
@@ -136,80 +136,6 @@ function SplineBackground() {
     </div>
   )
 }
-
-function extractDriveId(url) {
-  if (!url) return null
-  // Matches /file/d/<ID>/view or open?id=<ID>
-  const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)\//)
-  if (fileMatch) return fileMatch[1]
-  const openMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
-  if (openMatch) return openMatch[1]
-  return null
-}
-
-function buildCandidateUrls(input) {
-  if (!input) return []
-  const candidates = [input]
-  const id = extractDriveId(input)
-  if (id) {
-    candidates.push(`https://drive.google.com/uc?export=view&id=${id}`)
-    candidates.push(`https://drive.google.com/uc?export=download&id=${id}`)
-  }
-  return [...new Set(candidates)]
-}
-
-function ProfileAvatar({ size = 88, className = '' }) {
-  const srcEnv = import.meta.env.VITE_PROFILE_IMAGE
-  const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
-  const proxied = srcEnv ? `${backend}/api/image?src=${encodeURIComponent(srcEnv)}` : null
-
-  const fallback = `https://ui-avatars.com/api/?name=Jubin+Kuli&size=${size * 4}&background=0D9488&color=fff&bold=true&format=png`
-  const initialList = proxied ? [proxied] : (srcEnv ? buildCandidateUrls(srcEnv) : ['/profile.jpg'])
-
-  const [candidates, setCandidates] = useState(initialList)
-  const [index, setIndex] = useState(0)
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    const list = proxied ? [proxied] : buildCandidateUrls(srcEnv)
-    setCandidates(list.length ? list : ['/profile.jpg'])
-    setIndex(0)
-    setLoaded(false)
-  }, [srcEnv])
-
-  const onError = () => {
-    if (index < candidates.length - 1) {
-      setIndex((i) => i + 1)
-    } else {
-      if (candidates[candidates.length - 1] !== fallback) {
-        setCandidates((prev) => [...prev, fallback])
-        setIndex((i) => i + 1)
-      }
-    }
-  }
-
-  const src = candidates[index]
-
-  return (
-    <div className={`relative inline-block ${className}`} style={{ width: size, height: size }}>
-      {/* Outer glow ring */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-cyan-500/40 to-purple-500/40 blur-md" aria-hidden />
-      {/* Image */}
-      <img
-        src={src}
-        alt="Jubin Kuli profile"
-        className={`relative z-10 h-full w-full rounded-full object-cover border border-white/20 bg-black/20 ${loaded ? '' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-        onError={onError}
-        referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
-      />
-      {/* Skeleton */}
-      {!loaded && (
-        <div className="relative z-0 h-full w-full rounded-full bg-white/10 animate-pulse border border-white/10" />
-      )}
-    </div>
-  )}
 
 function Hero() {
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -231,23 +157,35 @@ function Hero() {
     return () => unsub()
   }, [progressSpring, hovering])
 
-  // Track mouse globally, but show bubble only inside hero bounds
+  // Mouse + touch tracking
   useEffect(() => {
-    const onMove = (e) => {
-      const x = (e.clientX / window.innerWidth - 0.5) * 10
-      const y = (e.clientY / window.innerHeight - 0.5) * 10
+    const onMove = (clientX, clientY) => {
+      const x = (clientX / window.innerWidth - 0.5) * 10
+      const y = (clientY / window.innerHeight - 0.5) * 10
       setPos({ x, y })
-      setCursor({ x: e.clientX, y: e.clientY })
+      setCursor({ x: clientX, y: clientY })
 
       if (heroRef.current) {
         const rect = heroRef.current.getBoundingClientRect()
-        const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom
+        const inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
         setHovering(inside)
         setBubble((b) => ({ ...b, visible: inside }))
       }
     }
-    window.addEventListener('mousemove', onMove)
-    return () => window.removeEventListener('mousemove', onMove)
+
+    const onMouseMove = (e) => onMove(e.clientX, e.clientY)
+    const onTouchMove = (e) => {
+      if (e.touches && e.touches[0]) {
+        onMove(e.touches[0].clientX, e.touches[0].clientY)
+      }
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('touchmove', onTouchMove)
+    }
   }, [])
 
   const onClick = () => {
@@ -263,6 +201,8 @@ function Hero() {
       onClick={onClick}
       onMouseEnter={() => setBubble((b) => ({ ...b, visible: true, text: 'Move your mouse! 🖱️' }))}
       onMouseLeave={() => setBubble((b) => ({ ...b, visible: false }))}
+      onTouchStart={() => setBubble((b) => ({ ...b, visible: true, text: 'Touch and drag ✨' }))}
+      onTouchEnd={() => setBubble((b) => ({ ...b, visible: false }))}
     >
       {/* 3D background with safe fallbacks */}
       <SplineBackground />
@@ -294,16 +234,13 @@ function Hero() {
             <Sparkles className="h-4 w-4 text-cyan-300" />
             <span className="text-xs md:text-sm text-white/80">Tech • Portfolio • Interactive</span>
           </div>
-          <div className="mt-4 flex items-center gap-4">
-            <ProfileAvatar size={72} />
-            <div>
-              <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
-                Hi, I'm <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Jubin Kuli</span>
-              </h1>
-              <p className="mt-2 text-white/80 text-lg md:text-xl max-w-2xl">
-                Class 11 student from Assam, Gogamukh (Ukhamati Kali Gaon). I build playful AI and utility projects with modern, interactive 3D.
-              </p>
-            </div>
+          <div className="mt-4">
+            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
+              Hi, I'm <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Jubin Kuli</span>
+            </h1>
+            <p className="mt-2 text-white/80 text-lg md:text-xl max-w-2xl">
+              Class 11 student from Assam, Gogamukh (Ukhamati Kali Gaon). I build playful AI and utility projects with modern, interactive 3D.
+            </p>
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -331,8 +268,11 @@ function Hero() {
 
       <RobotBubble x={cursor.x} y={cursor.y} visible={bubble.visible} text={bubble.text} />
 
-      <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-white/70">
+      <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-white/70 hidden md:block">
         Tip: Move your cursor — the robot reacts. Click to say hi!
+      </div>
+      <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-white/70 md:hidden">
+        Tip: Touch and drag — the robot reacts.
       </div>
     </section>
   )
@@ -354,18 +294,13 @@ function About() {
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/90 backdrop-blur">
-            <div className="flex items-center gap-4">
-              <ProfileAvatar size={88} />
-              <div>
-                <h3 className="text-xl font-bold text-white">Quick Details</h3>
-                <ul className="mt-3 space-y-3">
-                  <li className="flex items-center gap-3"><MapPin className="h-5 w-5 text-cyan-300" /> Assam, Gogamukh – Ukhamati Kali Gaon</li>
-                  <li className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-purple-300" /> Fascinated by technology</li>
-                  <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-rose-300" /> jubinkuli72@gmail.com</li>
-                  <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-emerald-300" /> 9678613150</li>
-                </ul>
-              </div>
-            </div>
+            <h3 className="text-xl font-bold text-white">Quick Details</h3>
+            <ul className="mt-4 space-y-3">
+              <li className="flex items-center gap-3"><MapPin className="h-5 w-5 text-cyan-300" /> Assam, Gogamukh – Ukhamati Kali Gaon</li>
+              <li className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-purple-300" /> Fascinated by technology</li>
+              <li className="flex items-center gap-3"><Mail className="h-5 w-5 text-rose-300" /> jubinkuli72@gmail.com</li>
+              <li className="flex items-center gap-3"><Phone className="h-5 w-5 text-emerald-300" /> 9678613150</li>
+            </ul>
           </div>
         </div>
       </div>
@@ -507,26 +442,26 @@ function Contact() {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-white/70">Name</label>
-                <input name="name" required value={form.name} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:border-cyan-400" placeholder="Your name" />
+                <input name="name" required value={form.name} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-3 outline-none focus:border-cyan-400" placeholder="Your name" />
               </div>
               <div>
                 <label className="text-sm text-white/70">Email</label>
-                <input type="email" name="email" required value={form.email} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:border-cyan-400" placeholder="you@example.com" />
+                <input type="email" name="email" required value={form.email} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-3 outline-none focus:border-cyan-400" placeholder="you@example.com" />
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-white/70">Subject</label>
-                <input name="subject" value={form.subject} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:border-cyan-400" placeholder="What's this about?" />
+                <input name="subject" value={form.subject} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-3 outline-none focus:border-cyan-400" placeholder="What's this about?" />
               </div>
               <div>
                 <label className="text-sm text-white/70">Phone</label>
-                <input name="phone" value={form.phone} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:border-cyan-400" placeholder="Optional" />
+                <input name="phone" value={form.phone} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-3 outline-none focus:border-cyan-400" placeholder="Optional" />
               </div>
             </div>
             <div>
               <label className="text-sm text-white/70">Message</label>
-              <textarea name="message" required rows="5" value={form.message} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus:border-cyan-400" placeholder="Tell me about your idea..." />
+              <textarea name="message" required rows="5" value={form.message} onChange={onChange} className="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-3 outline-none focus:border-cyan-400" placeholder="Tell me about your idea..." />
             </div>
 
             <motion.button type="submit" disabled={loading} whileHover={{ scale: loading ? 1 : 1.02 }} whileTap={{ scale: loading ? 1 : 0.98 }} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-white font-semibold disabled:opacity-60">
@@ -610,7 +545,6 @@ export default function App() {
       <header className="fixed top-0 left-0 right-0 z-40 backdrop-blur bg-black/40 border-b border-white/10">
         <div className="container mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
           <a href="#home" className="font-extrabold text-lg tracking-tight flex items-center gap-2" onClick={(e)=>scrollTo(e, '#home')}>
-            <ProfileAvatar size={28} />
             <span className="h-2 w-2 rounded-full bg-cyan-400" />
             Jubin<span className="text-cyan-400">.dev</span>
           </a>
