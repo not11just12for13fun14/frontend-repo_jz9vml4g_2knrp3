@@ -89,6 +89,11 @@ function hasWebGL() {
 function SplineBackground() {
   const [canUse3D, setCanUse3D] = useState(false)
 
+  // Allow overriding the scene via env var
+  const sceneUrl = import.meta.env.VITE_SPLINE_SCENE ||
+    // Futuristic neon city/room style scene (fallback)
+    'https://prod.spline.design/qe9y3dR3Jr5UuQ1P/scene.splinecode'
+
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (mq.matches) {
@@ -101,10 +106,10 @@ function SplineBackground() {
   if (!canUse3D) {
     return (
       <div className="absolute inset-0" aria-hidden>
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />
-        <div className="absolute inset-0 opacity-20">
-          <div className="w-[120vw] h-[120vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.25),transparent_60%)] absolute -top-1/4 -left-1/4" />
-          <div className="w-[120vw] h-[120vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.2),transparent_60%)] absolute -bottom-1/3 -right-1/3" />
+        {/* Futuristic fallback with animated gradients and grid */}
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_30%_-10%,rgba(34,211,238,0.25),transparent),radial-gradient(1000px_500px_at_80%_120%,rgba(168,85,247,0.18),transparent)] from-slate-950 to-black" />
+        <div className="absolute inset-0 opacity-15">
+          <div className="absolute inset-0 [background:linear-gradient(to_bottom,transparent,transparent_95%,rgba(255,255,255,0.06)_96%),linear-gradient(to_right,transparent,transparent_95%,rgba(255,255,255,0.06)_96%)] bg-[length:60px_60px]" />
         </div>
       </div>
     )
@@ -116,12 +121,18 @@ function SplineBackground() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />
       }>
         <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-black to-black" />}>
-          {/* Allow pointer events to pass for Spline interaction */}
+          {/* Keep pointer events for Spline so it stays interactive */}
           <div className="w-full h-full">
-            <SplineLazy scene="https://prod.spline.design/U2M9Ew1k7wX9o6bD/scene.splinecode" style={{ width: '100%', height: '100%' }} />
+            <SplineLazy scene={sceneUrl} style={{ width: '100%', height: '100%' }} />
           </div>
         </Suspense>
       </ErrorBoundary>
+
+      {/* Futuristic glow overlays */}
+      <div className="pointer-events-none absolute inset-0 mix-blend-screen">
+        <div className="absolute -top-24 -left-24 w-[60vw] h-[60vw] rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 w-[60vw] h-[60vw] rounded-full bg-purple-500/10 blur-3xl" />
+      </div>
     </div>
   )
 }
