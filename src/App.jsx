@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Spline from '@splinetool/react-spline'
-import { Menu, X, Mail, Phone, MapPin, Github, Linkedin, Sparkles } from 'lucide-react'
+import { Menu, X, Mail, Phone, MapPin, Github, Linkedin, Sparkles, Facebook } from 'lucide-react'
 
 function NavLink({ label, href, onClick }) {
   return (
@@ -167,7 +167,7 @@ function Contact() {
 
         <div className="mt-10 rounded-2xl border border-white/10 bg-white/5 p-6 text-white/90">
           <p className="text-white/80">
-            Prefer socials? Add your links here later. You can also turn this into a contact form in the future.
+            Prefer socials? You can reach me here as well.
           </p>
           <div className="mt-4 flex items-center gap-4">
             <a href="#" className="inline-flex items-center gap-2 text-white/80 hover:text-white">
@@ -175,6 +175,9 @@ function Contact() {
             </a>
             <a href="#" className="inline-flex items-center gap-2 text-white/80 hover:text-white">
               <Linkedin className="h-5 w-5" /> LinkedIn
+            </a>
+            <a href="https://www.facebook.com/share/14UJXBYuvKF/age" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-white/80 hover:text-white">
+              <Facebook className="h-5 w-5" /> Facebook
             </a>
           </div>
         </div>
